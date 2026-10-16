@@ -8,3 +8,4 @@ export { cycles, topological, type Edge, type TopoResult } from './graph.js';
 export * from './normalize/pocketbase.js';
 export * from './normalize/builtins.js';
 export * from './normalize/patterns.js';
+export * from './annotate.js';
