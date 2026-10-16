@@ -37,8 +37,13 @@
 	let nodes = $state.raw<Node[]>([]);
 	let edges = $state.raw<Edge[]>([]);
 
+	// System and plugin collections are PocketBase's business: locked, and
+	// kept off the canvas so the user's own tables have the room.
+	const shown = $derived(editor.diagram.collections.filter((c) => !c.locked));
+	const shownIds = $derived(new Set(shown.map((c) => c.collection.id)));
+
 	$effect(() => {
-		const ids = editor.diagram.collections.map((c) => c.collection.id);
+		const ids = shown.map((c) => c.collection.id);
 		const positions = editor.positions;
 		const selected = editor.selection?.collectionId;
 		// Previous nodes are read untracked: this effect writes `nodes`, and
@@ -60,7 +65,9 @@
 
 	$effect(() => {
 		const positions = editor.positions;
-		edges = editor.diagram.edges.map((edge) => {
+		edges = editor.diagram.edges
+			.filter((edge) => shownIds.has(edge.from) && shownIds.has(edge.to))
+			.map((edge) => {
 			const from = positions[edge.from] ?? { x: 0, y: 0 };
 			const to = positions[edge.to] ?? { x: 0, y: 0 };
 			const self = edge.from === edge.to;
@@ -75,7 +82,7 @@
 				selectable: false,
 				data: { status: edge.status, multiple: edge.multiple, cascade: edge.cascade }
 			};
-		});
+			});
 	});
 
 	const onconnect = (connection: Connection) => {

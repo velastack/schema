@@ -146,10 +146,12 @@ export class EditorState {
 	/** Dagre positions for everything currently drawn. */
 	autoLayout(): Record<string, Position> {
 		const schema: Schema = {
-			collections: this.diagram.collections.map((entry) => ({
-				...entry.collection,
-				fields: entry.fields.map((f) => f.field)
-			}))
+			collections: this.diagram.collections
+				.filter((entry) => !entry.locked)
+				.map((entry) => ({
+					...entry.collection,
+					fields: entry.fields.map((f) => f.field)
+				}))
 		};
 		const result = computeLayout(schema);
 		const positions: Record<string, Position> = {};
@@ -179,15 +181,17 @@ export class EditorState {
 	/** The nearest spot to `preferred` where a new card overlaps no card already placed. */
 	#freePosition(preferred: Position): Position {
 		const gap = 24;
-		const boxes = this.diagram.collections.map((entry) => {
-			const at = this.positions[entry.collection.id] ?? { x: 0, y: 0 };
-			return {
-				x: at.x,
-				y: at.y,
-				w: CARD_WIDTH,
-				h: CARD_HEADER + entry.fields.length * CARD_ROW + 32
-			};
-		});
+		const boxes = this.diagram.collections
+			.filter((entry) => !entry.locked)
+			.map((entry) => {
+				const at = this.positions[entry.collection.id] ?? { x: 0, y: 0 };
+				return {
+					x: at.x,
+					y: at.y,
+					w: CARD_WIDTH,
+					h: CARD_HEADER + entry.fields.length * CARD_ROW + 32
+				};
+			});
 		const overlaps = (p: Position) =>
 			boxes.some(
 				(b) =>
