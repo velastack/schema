@@ -12,6 +12,7 @@
 		"packages/*"
 	],
 	"scripts": {
+		"prepare": "npm run build --workspace packages/schema",
 		"build": "npm run build --workspaces --if-present",
 		"check": "npm run check --workspaces --if-present",
 		"test": "npm test --workspaces --if-present",
