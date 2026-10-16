@@ -116,8 +116,30 @@ export const completeCollection = (collection: Collection): Collection => {
 	const required = collection.type === 'auth' ? authSystemFields() : [systemIdField()];
 	const present = new Set(collection.fields.map((f) => f.name));
 	const missing = required.filter((f) => !present.has(f.name));
-	if (missing.length === 0) return collection;
-	return { ...collection, fields: [...missing, ...collection.fields] };
+	// PocketBase also gives every auth collection two unique indexes.
+	const indexes =
+		collection.type === 'auth'
+			? [
+					...authSystemIndexes(collection).filter(
+						(index) => !collection.indexes.some((own) => sameIndexColumns(own, index))
+					),
+					...collection.indexes
+				]
+			: collection.indexes;
+	if (missing.length === 0 && indexes.length === collection.indexes.length) return collection;
+	return { ...collection, fields: [...missing, ...collection.fields], indexes };
+};
+
+/** The unique indexes PocketBase creates on an auth collection, named after its id. */
+export const authSystemIndexes = (collection: Pick<Collection, 'id' | 'name'>): string[] => [
+	`CREATE UNIQUE INDEX \`idx_tokenKey_${collection.id}\` ON \`${collection.name}\` (\`tokenKey\`)`,
+	`CREATE UNIQUE INDEX \`idx_email_${collection.id}\` ON \`${collection.name}\` (\`email\`) WHERE \`email\` != ''`
+];
+
+/** Whether two index statements cover the same column list, whatever their names. */
+const sameIndexColumns = (a: string, b: string): boolean => {
+	const columns = (sql: string) => /\(([^)]*)\)/.exec(sql)?.[1]?.replace(/[`\s]/g, '') ?? sql;
+	return columns(a) === columns(b);
 };
 
 export const completeSchema = (schema: Schema): Schema => ({

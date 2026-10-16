@@ -203,7 +203,8 @@ const diffCollection = (base: Collection, next: Collection, ids: IdMinter): Op[]
 			to: next.viewQuery ?? ''
 		});
 	}
-	ops.push(...diffFields(base, next, ids));
+	// A view's fields come from its query; PocketBase derives them on save.
+	if (base.type !== 'view') ops.push(...diffFields(base, next, ids));
 	return ops;
 };
 

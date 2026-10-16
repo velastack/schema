@@ -110,6 +110,19 @@ describe('diff', () => {
 		expect(ops[1]).toMatchObject({ added: books.indexes, removed: [] });
 	});
 
+	it('does not diff the fields of a view, only its query', () => {
+		const base = schema(
+			collection('v', [text('id'), text('name')], {
+				type: 'view',
+				viewQuery: 'SELECT id, name FROM a'
+			})
+		);
+		const next = schema(
+			collection('v', [], { type: 'view', viewQuery: 'SELECT id, name, email FROM a' })
+		);
+		expect(diff(base, next).ops.map((op) => op.kind)).toEqual(['updateViewQuery']);
+	});
+
 	it('cannot change a collection type in place, so it drops and recreates', () => {
 		const base = librarySchema();
 		const next = clone(base);

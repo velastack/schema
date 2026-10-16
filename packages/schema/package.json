@@ -40,6 +40,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^26.5.1",
+		"pocketbase-server": "^0.40.6-beta.4",
 		"publint": "^0.3.2",
 		"typescript": "^6.0.3",
 		"vitest": "^5.0.1"

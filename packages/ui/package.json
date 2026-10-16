@@ -40,7 +40,8 @@
 		}
 	},
 	"dependencies": {
-		"@velastack/schema": "^0.1.0"
+		"@velastack/schema": "^0.1.0",
+		"@xyflow/svelte": "^1.7.0"
 	},
 	"peerDependencies": {
 		"svelte": "^5.57.1"

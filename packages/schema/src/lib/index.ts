@@ -9,3 +9,4 @@ export * from './normalize/pocketbase.js';
 export * from './normalize/builtins.js';
 export * from './normalize/patterns.js';
 export * from './annotate.js';
+export * from './apply.js';
