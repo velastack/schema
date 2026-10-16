@@ -33,6 +33,10 @@
 		".": {
 			"types": "./dist/index.d.ts",
 			"default": "./dist/index.js"
+		},
+		"./registry": {
+			"types": "./dist/registry/index.d.ts",
+			"default": "./dist/registry/index.js"
 		}
 	},
 	"dependencies": {
