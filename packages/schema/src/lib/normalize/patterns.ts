@@ -34,7 +34,6 @@ export interface PatternFieldSpec {
 	autogeneratePattern?: string;
 	exceptDomains?: null;
 	onlyDomains?: null;
-	[key: string]: unknown;
 }
 
 export interface PatternCollectionSpec {

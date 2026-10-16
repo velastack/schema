@@ -22,10 +22,19 @@
 		direction?: Direction;
 		/** Never scale above this; 1 keeps cards at their natural size. */
 		maxScale?: number;
+		/** Never scale below this; a wider diagram scrolls horizontally instead of shrinking further. */
+		minScale?: number;
 		class?: string;
 	}
 
-	let { diagram, layout, direction = 'LR', maxScale = 1, class: className = '' }: Props = $props();
+	let {
+		diagram,
+		layout,
+		direction = 'LR',
+		maxScale = 1,
+		minScale = 0.7,
+		class: className = ''
+	}: Props = $props();
 
 	const placed = $derived(layout ?? computeLayout(diagramSchema(diagram), { direction }));
 	const paths = $derived(edgePaths(diagram, placed));
@@ -34,8 +43,9 @@
 	let container: HTMLDivElement | undefined = $state();
 	let available = $state(0);
 	const scale = $derived(
-		available > 0 ? Math.min(maxScale, available / placed.width) : 1
+		available > 0 ? Math.max(minScale, Math.min(maxScale, available / placed.width)) : 1
 	);
+	const scrolls = $derived(available > 0 && placed.width * scale > available + 1);
 
 	$effect(() => {
 		if (!container) return;
@@ -53,7 +63,7 @@
 <div
 	class="schema-diagram {className}"
 	bind:this={container}
-	data-scaled={available > 0 || undefined}
+	data-scaled={(available > 0 && !scrolls) || undefined}
 	style="--scale: {scale}; --width: {placed.width}px; --height: {placed.height}px"
 >
 	<div class="schema-diagram__canvas">

@@ -59,7 +59,7 @@ export const layout = (schema: Schema, options: LayoutOptions = {}): Layout => {
 	graph.setGraph({
 		rankdir: direction,
 		nodesep: options.nodesep ?? 48,
-		ranksep: options.ranksep ?? 96,
+		ranksep: options.ranksep ?? 80,
 		marginx: margin,
 		marginy: margin
 	});
