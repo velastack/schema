@@ -89,7 +89,7 @@
 ## Phases
 
 0. **Engine core** — done 2026-10-16. Repo, `@velastack/schema` types, normalize, ids, diff, lint, plan, layout; 63 unit tests; manual end-to-end against the binary (to become the CI integration test in phase 2).
-1. **Read-only on pattern pages** — done 2026-10-16 (ui package committed; velastack branch `feat/schema-diagram`, waiting on the packages being published so its package.json can depend on them). `TableCard`, `SchemaDiagram`, `annotate` (Diagram model), pattern page shows a Schema tab from the baseline users+teams preview project.
+1. **Read-only on pattern pages** — done 2026-10-16. `@velastack/schema@0.1.0` and `@velastack/schema-ui@0.1.0` are on npm; velastack PR #60 adds the Schema tab. `TableCard`, `SchemaDiagram`, `annotate` (Diagram model), pattern page shows a Schema tab from the baseline users+teams preview project.
 2. **Apply + CLI editor (no AI)** — `apply.ts` with an integration test against the `pocketbase-server` binary (CI); temp server; local HTTP server; editor SPA with manual editing, review, apply; `vela generate migration --ai`. Done when a cycle (A↔B) and a rename+drop apply cleanly into `migrations/` and `vela dev` boots the result.
 3. **AI** — `ai/schema-edit` endpoint, CLI proxy, prompt dock, proposed-state diff review.
 4. **Gallery + launch** — verify `create` can run enable patterns programmatically; registry format and first 6–8 schemas (gym memberships, hotel bookings, restaurant reservations, clinic appointments, inventory, courses, events/ticketing, invoicing), `/schemas` pages, OG cards, `vela create --schema`.
