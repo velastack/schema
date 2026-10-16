@@ -9,7 +9,26 @@
 	import { EditorState } from '../lib/editor.svelte.js';
 	import { httpApi, memoryApi, type SchemaApi } from '../lib/api.js';
 
-	const token = new URLSearchParams(location.hash.replace(/^#/, '')).get('token');
+	// The token arrives once in the URL fragment and is then kept for this
+	// tab only, so a refresh still reaches the server. The origin is a
+	// loopback port that exists for one session.
+	const TOKEN_KEY = 'vela-schema-token';
+	const fromHash = new URLSearchParams(location.hash.replace(/^#/, '')).get('token');
+	const token = fromHash ?? readStoredToken();
+	if (fromHash) {
+		try {
+			sessionStorage.setItem(TOKEN_KEY, fromHash);
+		} catch {
+			// Private windows may refuse; the token still lives in this closure.
+		}
+	}
+	function readStoredToken(): string | null {
+		try {
+			return sessionStorage.getItem(TOKEN_KEY);
+		} catch {
+			return null;
+		}
+	}
 
 	const sample = (): Schema =>
 		applyPatternResult(builtinSchema(), {
@@ -67,7 +86,10 @@
 	<main class="app app--message">
 		<p><strong>Could not reach the schema server.</strong></p>
 		<p>{message}</p>
-		<p>Start it again with <code>vela generate migration --ai</code> and open the URL it prints.</p>
+		<p>
+			If <code>vela generate migration --ai</code> is still running, open the URL it printed again.
+			Otherwise start it and open the new URL.
+		</p>
 	</main>
 {:else}
 	<main class="app app--message"><p>Loading…</p></main>

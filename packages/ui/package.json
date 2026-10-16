@@ -1,6 +1,6 @@
 {
 	"name": "@velastack/schema-ui",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Svelte 5 components for PocketBase schemas: a table card, a server-rendered diagram, and the editor.",
 	"license": "MIT",
 	"repository": {
@@ -39,10 +39,15 @@
 			"svelte": "./dist/index.js",
 			"default": "./dist/index.js"
 		},
+		"./editor": {
+			"types": "./dist/editor.d.ts",
+			"svelte": "./dist/editor.js",
+			"default": "./dist/editor.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"dependencies": {
-		"@velastack/schema": "^0.1.0",
+		"@velastack/schema": "^0.2.0",
 		"@xyflow/svelte": "^1.7.0"
 	},
 	"peerDependencies": {
