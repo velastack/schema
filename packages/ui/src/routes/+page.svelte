@@ -4,7 +4,14 @@
 	 * the CLI's local server; without one (developing the editor, or a demo)
 	 * it runs on an in-memory database seeded with a small schema.
 	 */
-	import { applyPatternResult, builtinSchema, type Schema } from '@velastack/schema';
+	import {
+		applyPatternResult,
+		builtinSchema,
+		pocketbaseFieldId,
+		randomIds,
+		systemIdField,
+		type Schema
+	} from '@velastack/schema';
 	import SchemaEditor from '../lib/components/SchemaEditor.svelte';
 	import { EditorState } from '../lib/editor.svelte.js';
 	import { httpApi, memoryApi, type SchemaApi } from '../lib/api.js';
@@ -54,6 +61,40 @@
 		});
 
 	const api: SchemaApi = token ? httpApi(token) : memoryApi(sample());
+
+	// `?mockai` gives the in-memory editor a pretend AI that understands
+	// "add <name>", enough to work on the proposal flow without a server.
+	if (!token && location.search.includes('mockai')) {
+		api.ai = async ({ prompt, schema }) => {
+			const name = /add (?:a |an )?(\w+)/i.exec(prompt)?.[1]?.toLowerCase() ?? 'things';
+			const id = randomIds().collection(name);
+			return {
+				schema: {
+					collections: [
+						...schema.collections,
+						{
+							id,
+							name,
+							type: 'base',
+							indexes: [],
+							rules: { list: null, view: null, create: null, update: null, delete: null },
+							fields: [
+								systemIdField(),
+								{ id: pocketbaseFieldId('text', 'name'), name: 'name', type: 'text', required: true },
+								{ id: pocketbaseFieldId('relation', 'owner'), name: 'owner', type: 'relation', collectionId: '_pb_users_auth_', maxSelect: 1 }
+							]
+						}
+					]
+				},
+				summary: `Added ${name} with a name and an owner.`,
+				turn: [
+					{ role: 'user', content: prompt },
+					{ role: 'assistant', content: '{}' }
+				]
+			};
+		};
+		delete api.aiUnavailable;
+	}
 	const editor = new EditorState();
 
 	let status = $state<'loading' | 'ready' | 'error'>('loading');
