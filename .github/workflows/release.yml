@@ -1,0 +1,57 @@
+name: Release
+
+# Tag `schema-v0.1.0` publishes @velastack/schema, `ui-v0.1.0` publishes
+# @velastack/schema-ui. The version in the tag must match the package.
+on:
+  push:
+    tags:
+      - 'schema-v*.*.*'
+      - 'ui-v*.*.*'
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # Node 24 ships npm 11.x, required for OIDC trusted publishing (>= 11.5.1).
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve the package from the tag
+        id: pkg
+        run: |
+          case "$GITHUB_REF_NAME" in
+            schema-v*) echo "dir=packages/schema" >> "$GITHUB_OUTPUT"; echo "version=${GITHUB_REF_NAME#schema-v}" >> "$GITHUB_OUTPUT" ;;
+            ui-v*)     echo "dir=packages/ui"     >> "$GITHUB_OUTPUT"; echo "version=${GITHUB_REF_NAME#ui-v}" >> "$GITHUB_OUTPUT" ;;
+            *) echo "unexpected tag $GITHUB_REF_NAME"; exit 1 ;;
+          esac
+
+      - name: Verify tag matches package.json version
+        working-directory: ${{ steps.pkg.outputs.dir }}
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$PKG_VERSION" != "${{ steps.pkg.outputs.version }}" ]; then
+            echo "Tag ${{ steps.pkg.outputs.version }} does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      - run: npm run lint
+      - run: npm run check
+      - run: npm test
+
+      # The ui package builds against the schema package's dist.
+      - run: npm run build --workspace packages/schema
+
+      - name: Publish to npm
+        working-directory: ${{ steps.pkg.outputs.dir }}
+        run: npm publish --access public --provenance
