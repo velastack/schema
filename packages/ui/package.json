@@ -1,6 +1,6 @@
 {
 	"name": "@velastack/schema-ui",
-	"version": "0.2.2",
+	"version": "0.3.0",
 	"description": "Svelte 5 components for PocketBase schemas: a table card, a server-rendered diagram, and the editor.",
 	"license": "MIT",
 	"repository": {
@@ -47,7 +47,7 @@
 		"./package.json": "./package.json"
 	},
 	"dependencies": {
-		"@velastack/schema": "^0.2.0",
+		"@velastack/schema": "^0.3.0",
 		"@xyflow/svelte": "^1.7.0"
 	},
 	"peerDependencies": {

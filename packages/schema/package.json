@@ -1,6 +1,6 @@
 {
 	"name": "@velastack/schema",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "PocketBase schema engine: canonical collection model, id-based diff, lint, two-phase migration ordering, and layout.",
 	"license": "MIT",
 	"repository": {
