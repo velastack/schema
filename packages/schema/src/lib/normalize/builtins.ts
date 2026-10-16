@@ -142,9 +142,17 @@ const sameIndexColumns = (a: string, b: string): boolean => {
 	return columns(a) === columns(b);
 };
 
-export const completeSchema = (schema: Schema): Schema => ({
-	collections: schema.collections.map(completeCollection)
-});
+/**
+ * Complete every collection, or with `base` given only the collections it
+ * does not have yet: an existing collection already carries whatever
+ * PocketBase added, and a fake or partial base must not be "fixed".
+ */
+export const completeSchema = (schema: Schema, base?: Schema): Schema => {
+	const existing = new Set(base?.collections.map((c) => c.id) ?? []);
+	return {
+		collections: schema.collections.map((c) => (existing.has(c.id) ? c : completeCollection(c)))
+	};
+};
 
 /** A fresh PocketBase database as the editor sees it: `users` and nothing else. */
 export const builtinSchema = (): Schema => ({ collections: [usersCollection()] });

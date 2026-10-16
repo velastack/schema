@@ -5,7 +5,8 @@ import adapter from '@sveltejs/adapter-static';
 export default defineConfig({
 	plugins: [
 		sveltekit({
-			adapter: adapter({ fallback: '200.html' }),
+			// The editor SPA the CLI serves from this package's `app/` directory.
+			adapter: adapter({ pages: 'app', assets: 'app', fallback: 'index.html' }),
 			compilerOptions: { runes: true }
 		})
 	],

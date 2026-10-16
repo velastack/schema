@@ -22,3 +22,6 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# The UI package's built editor SPA (served by the CLI from the published package)
+packages/ui/app/

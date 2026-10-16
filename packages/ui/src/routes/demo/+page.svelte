@@ -12,7 +12,7 @@
 		type PatternResult,
 		type Schema
 	} from '@velastack/schema';
-	import SchemaDiagram from '../lib/components/SchemaDiagram.svelte';
+	import SchemaDiagram from '../../lib/components/SchemaDiagram.svelte';
 
 	const teams: PatternResult['collections'] = [
 		{

@@ -44,6 +44,14 @@ describe('completeCollection', () => {
 		expect(completeCollection(users)).toBe(users);
 	});
 
+	it('leaves collections the base already has alone when given the base', () => {
+		const base = { collections: [collection('users', [text('email')], { type: 'auth' })] };
+		const next = { collections: [...base.collections, collection('posts', [text('title')])] };
+		const done = completeSchema(next, base);
+		expect(done.collections[0]).toBe(base.collections[0]);
+		expect(done.collections[1]!.fields.map((f) => f.name)).toEqual(['id', 'title']);
+	});
+
 	it('makes a hand-built schema diff clean against what PocketBase stores', () => {
 		const hand = { collections: [collection('books', [text('title')])] };
 		const stored = completeSchema(hand);
