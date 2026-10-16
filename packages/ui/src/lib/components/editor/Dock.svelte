@@ -7,7 +7,13 @@
 	 */
 	import type { Issue, Op, Step } from '@velastack/schema';
 	import type { EditorState } from '../../editor.svelte.js';
-	import { ApplyRefused, type ApplyResponse, type SchemaApi } from '../../api.js';
+	import {
+		AiUnavailable,
+		ApplyRefused,
+		type AiTurn,
+		type ApplyResponse,
+		type SchemaApi
+	} from '../../api.js';
 
 	interface Props {
 		editor: EditorState;
@@ -19,6 +25,52 @@
 
 	let review = $state(false);
 	let applying = $state(false);
+	let asking = $state(false);
+	let prompt = $state('');
+	let promptOpen = $state(false);
+	let promptInput: HTMLInputElement | undefined = $state();
+	let history = $state.raw<AiTurn[]>([]);
+	let aiError = $state<string | null>(null);
+	const aiReady = $derived(Boolean(api.ai));
+	const aiTitle = $derived(
+		aiReady
+			? 'Describe a change in words (⌘K)'
+			: (api.aiUnavailable ?? 'AI is not available here')
+	);
+
+	const openPrompt = () => {
+		if (!aiReady) return;
+		promptOpen = true;
+		aiError = null;
+		queueMicrotask(() => promptInput?.focus());
+	};
+
+	const ask = async () => {
+		const text = prompt.trim();
+		if (!text || !api.ai || asking) return;
+		asking = true;
+		aiError = null;
+		try {
+			const response = await api.ai({ prompt: text, schema: editor.next, history });
+			history = response.turn;
+			editor.propose(response.schema, response.summary);
+			prompt = '';
+		} catch (e) {
+			aiError = e instanceof AiUnavailable ? e.message : e instanceof Error ? e.message : String(e);
+		} finally {
+			asking = false;
+		}
+	};
+
+	const accept = () => {
+		editor.acceptProposal();
+		promptOpen = false;
+	};
+	const discard = () => {
+		editor.discardProposal();
+		history = [];
+		promptOpen = false;
+	};
 	let result = $state<ApplyResponse | null>(null);
 	let refused = $state<Issue[] | null>(null);
 	let error = $state<string | null>(null);
@@ -93,9 +145,14 @@
 			event.preventDefault();
 			onaddtable();
 		}
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+			event.preventDefault();
+			openPrompt();
+		}
 		if (event.key === 'Escape') {
 			review = false;
 			result = null;
+			if (!editor.proposal) promptOpen = false;
 		}
 	};
 </script>
@@ -169,6 +226,15 @@
 	</section>
 {/if}
 
+{#if aiError}
+	<section class="dock__panel dock__panel--result" aria-live="assertive">
+		<header class="dock__panel-head">
+			<strong class="dock__fail">AI could not do that.</strong> {aiError}
+			<button class="dock__link" type="button" onclick={() => (aiError = null)}>dismiss</button>
+		</header>
+	</section>
+{/if}
+
 {#if error}
 	<section class="dock__panel dock__panel--result" aria-live="assertive">
 		<header class="dock__panel-head">
@@ -190,7 +256,60 @@
 	</div>
 
 	<div class="dock__group dock__group--centre">
-		{#if editor.dirty}
+		{#if editor.proposal && promptOpen}
+			<form
+				class="dock__prompt"
+				onsubmit={(event) => {
+					event.preventDefault();
+					void ask();
+				}}
+			>
+				<span class="dock__prompt-mark">✦</span>
+				<input
+					class="dock__prompt-input"
+					bind:this={promptInput}
+					bind:value={prompt}
+					placeholder="Refine: make the relation required, rename…"
+					disabled={asking}
+					onkeydown={(event) => {
+						if (event.key === 'Escape') promptOpen = false;
+					}}
+				/>
+				<button class="dock__button dock__button--primary" type="submit" disabled={asking || !prompt.trim()}>
+					{asking ? 'Thinking…' : 'Ask'}
+				</button>
+				<button class="dock__button" type="button" onclick={() => (promptOpen = false)}>Back</button>
+			</form>
+		{:else if editor.proposal}
+			<span class="dock__pending dock__pending--ai" title={editor.proposal.summary}>✦ {editor.proposal.summary}</span>
+			<button class="dock__button" type="button" onclick={discard}>Discard</button>
+			<button class="dock__button" type="button" data-active={review || undefined} onclick={() => (review = !review)}>Review</button>
+			<button class="dock__button dock__button--primary" type="button" onclick={accept}>Accept</button>
+			<button class="dock__button" type="button" title="Ask for a change to this proposal" onclick={openPrompt}>Refine…</button>
+		{:else if promptOpen}
+			<form
+				class="dock__prompt"
+				onsubmit={(event) => {
+					event.preventDefault();
+					void ask();
+				}}
+			>
+				<span class="dock__prompt-mark">✦</span>
+				<input
+					class="dock__prompt-input"
+					bind:this={promptInput}
+					bind:value={prompt}
+					placeholder="Describe a change: add a comments table with a post relation…"
+					disabled={asking}
+					onkeydown={(event) => {
+						if (event.key === 'Escape') promptOpen = false;
+					}}
+				/>
+				<button class="dock__button dock__button--primary" type="submit" disabled={asking || !prompt.trim()}>
+					{asking ? 'Thinking…' : 'Ask'}
+				</button>
+			</form>
+		{:else if editor.dirty}
 			<span class="dock__pending">
 				{editor.summary.total} {editor.summary.total === 1 ? 'change' : 'changes'}
 			</span>
@@ -215,7 +334,7 @@
 		<button class="dock__button dock__button--icon" type="button" disabled={!editor.canRedo} title="Redo (⇧⌘Z)" aria-label="Redo" onclick={() => editor.redo()}>↷</button>
 		<button class="dock__button" type="button" title="Arrange the tables" onclick={() => editor.relayout()}>Layout</button>
 		<button class="dock__button" type="button" title="Add a table (N)" onclick={onaddtable}>+ Table</button>
-		<button class="dock__button dock__button--ai" type="button" disabled title="Describe a change in words. Needs a project linked with vela login; coming next.">✦ AI</button>
+		<button class="dock__button dock__button--ai" type="button" disabled={!aiReady} title={aiTitle} onclick={openPrompt}>✦ AI</button>
 	</div>
 </footer>
 
@@ -305,8 +424,37 @@
 		font-size: 14px;
 		line-height: 12px;
 	}
-	.dock__button--ai {
+	.dock__button--ai:not(:disabled) {
+		color: var(--foreground, #0f172a);
+	}
+	.dock__pending--ai {
+		max-width: 360px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		color: var(--foreground, #0f172a);
+	}
+	.dock__prompt {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: min(640px, 60vw);
+	}
+	.dock__prompt-mark {
 		color: var(--muted-foreground, #64748b);
+	}
+	.dock__prompt-input {
+		flex: 1;
+		min-width: 0;
+		font: inherit;
+		color: var(--foreground, #0f172a);
+		background: var(--background, #fff);
+		border: 1px solid var(--border, #e2e8f0);
+		border-radius: 5px;
+		padding: 6px 10px;
+	}
+	.dock__prompt-input:focus {
+		outline: none;
+		border-color: var(--ring, #94a3b8);
 	}
 
 	.dock__panel {

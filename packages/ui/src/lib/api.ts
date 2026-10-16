@@ -37,6 +37,31 @@ export interface ApplyResponse {
 	failed?: { step: AppliedStep; message: string };
 }
 
+export interface AiTurn {
+	role: 'user' | 'assistant';
+	content: string;
+}
+
+export interface AiEditRequest {
+	prompt: string;
+	schema: Schema;
+	history?: AiTurn[];
+}
+
+export interface AiEditResponse {
+	schema: Schema;
+	summary: string;
+	turn: AiTurn[];
+}
+
+/** The server has no AI for this session: not linked, not logged in, offline. */
+export class AiUnavailable extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'AiUnavailable';
+	}
+}
+
 export class ApplyRefused extends Error {
 	issues: Issue[];
 	constructor(issues: Issue[]) {
@@ -51,6 +76,10 @@ export interface SchemaApi {
 	load(): Promise<{ base: Schema; project?: string }>;
 	/** Plan and apply the change from the current base to `next`. */
 	apply(next: Schema): Promise<ApplyResponse>;
+	/** Ask for the schema with a request in words applied; absent when the server has no AI. */
+	ai?: (input: AiEditRequest) => Promise<AiEditResponse>;
+	/** Why `ai` is missing, for the dock to say. */
+	aiUnavailable?: string;
 }
 
 /** A client for the CLI's local server; `token` arrives once in the opening URL. */
@@ -61,17 +90,23 @@ export const httpApi = (token: string, origin = ''): SchemaApi => {
 			headers: { 'content-type': 'application/json', 'x-vela-schema-token': token },
 			...(body === undefined ? {} : { body: JSON.stringify(body) })
 		});
-		if (response.status === 400) {
-			const payload = (await response.json()) as { issues?: Issue[]; message?: string };
+		if (response.status === 400 || response.status === 409 || response.status === 502) {
+			const payload = (await response.json().catch(() => ({}))) as {
+				issues?: Issue[];
+				message?: string;
+			};
 			if (payload.issues) throw new ApplyRefused(payload.issues);
-			throw new Error(payload.message ?? 'Bad request');
+			if (response.status === 409)
+				throw new AiUnavailable(payload.message ?? 'AI is not available');
+			throw new Error(payload.message ?? `${method} ${path} failed (${response.status})`);
 		}
 		if (!response.ok) throw new Error(`${method} ${path} failed (${response.status})`);
 		return (await response.json()) as T;
 	};
 	return {
 		load: () => call('GET', '/api/schema'),
-		apply: (next) => call('POST', '/api/apply', { next })
+		apply: (next) => call('POST', '/api/apply', { next }),
+		ai: (input) => call('POST', '/api/ai', input)
 	};
 };
 
@@ -84,6 +119,7 @@ export const memoryApi = (initial: Schema): SchemaApi => {
 	let base = completeSchema(initial);
 	let stamp = Math.floor(Date.now() / 1000);
 	return {
+		aiUnavailable: 'AI needs the CLI: run vela generate migration --ai in a linked project.',
 		load: async () => ({ base, project: 'in-memory' }),
 		apply: async (next) => {
 			const completed = completeSchema(next, base);

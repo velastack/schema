@@ -70,6 +70,8 @@ export class EditorState {
 	selection = $state<Selection>(null);
 	/** A collection whose name input should take focus once, right after it was created. */
 	focusName = $state<string | null>(null);
+	/** An AI answer shown as the working state, with what it replaced, until accepted or discarded. */
+	proposal = $state.raw<{ before: Schema; summary: string } | null>(null);
 	project = $state<string | undefined>(undefined);
 
 	#past = $state.raw<Schema[]>([]);
@@ -372,6 +374,31 @@ export class EditorState {
 				c.fields.splice(at, 0, clone(original));
 			}
 		});
+	}
+
+	/**
+	 * Show an AI answer as the working state. The cards draw its difference
+	 * from the base; accepting keeps it as one undoable step, discarding
+	 * goes back to what was there. A second proposal on top of a first
+	 * keeps the original "before".
+	 */
+	propose(schema: Schema, summary: string) {
+		this.proposal = { before: this.proposal?.before ?? this.next, summary };
+		this.next = schema;
+		this.selection = null;
+	}
+
+	acceptProposal() {
+		if (!this.proposal) return;
+		this.#past = [...this.#past, this.proposal.before];
+		this.#future = [];
+		this.proposal = null;
+	}
+
+	discardProposal() {
+		if (!this.proposal) return;
+		this.next = this.proposal.before;
+		this.proposal = null;
 	}
 
 	/** Dragging a row onto a table: the field becomes a relation to it. */
