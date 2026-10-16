@@ -13,6 +13,7 @@ import {
 	annotate,
 	diff,
 	hasErrors,
+	isLocked,
 	isRelation,
 	layout as computeLayout,
 	lint,
@@ -386,6 +387,20 @@ export class EditorState {
 		this.proposal = { before: this.proposal?.before ?? this.next, summary };
 		this.next = schema;
 		this.selection = null;
+		// New collections land in free space near the right edge of what is drawn.
+		const placed = Object.values(this.positions);
+		const anchor = {
+			x: placed.length ? Math.max(...placed.map((p) => p.x)) + CARD_WIDTH + 48 : 0,
+			y: placed.length ? Math.min(...placed.map((p) => p.y)) : 0
+		};
+		const positions = { ...this.positions };
+		for (const collection of schema.collections) {
+			if (!positions[collection.id] && !isLocked(collection)) {
+				positions[collection.id] = this.#freePosition(anchor);
+				this.positions = positions;
+			}
+		}
+		this.positions = positions;
 	}
 
 	acceptProposal() {

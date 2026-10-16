@@ -55,6 +55,8 @@
 			history = response.turn;
 			editor.propose(response.schema, response.summary);
 			prompt = '';
+			// Back to the bar, where the answer and Accept / Discard are.
+			promptOpen = false;
 		} catch (e) {
 			aiError = e instanceof AiUnavailable ? e.message : e instanceof Error ? e.message : String(e);
 		} finally {
