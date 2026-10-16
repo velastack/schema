@@ -24,6 +24,14 @@
 		maxScale?: number;
 		/** Never scale below this; a wider diagram scrolls horizontally instead of shrinking further. */
 		minScale?: number;
+		/**
+		 * `'width'` (default) fits the diagram's width and lets the height follow.
+		 * `'contain'` fits it inside the container's own box, for thumbnails;
+		 * `minScale` does not apply.
+		 */
+		fit?: 'width' | 'contain';
+		/** Container width assumed before the browser has measured it, so the server render is close. */
+		estimateWidth?: number;
 		class?: string;
 	}
 
@@ -33,6 +41,8 @@
 		direction = 'LR',
 		maxScale = 1,
 		minScale = 0.7,
+		fit = 'width',
+		estimateWidth = 0,
 		class: className = ''
 	}: Props = $props();
 
@@ -42,15 +52,26 @@
 
 	let container: HTMLDivElement | undefined = $state();
 	let available = $state(0);
-	const scale = $derived(
-		available > 0 ? Math.max(minScale, Math.min(maxScale, available / placed.width)) : 1
-	);
-	const scrolls = $derived(available > 0 && placed.width * scale > available + 1);
+	let availableHeight = $state(0);
+	const width = $derived(available || estimateWidth);
+	const scale = $derived.by(() => {
+		if (!width) return 1;
+		if (fit === 'contain') {
+			const byWidth = width / placed.width;
+			const byHeight = availableHeight ? availableHeight / placed.height : byWidth;
+			return Math.min(maxScale, byWidth, byHeight);
+		}
+		return Math.max(minScale, Math.min(maxScale, width / placed.width));
+	});
+	const scrolls = $derived(fit === 'width' && available > 0 && placed.width * scale > available + 1);
 
 	$effect(() => {
 		if (!container) return;
 		const observer = new ResizeObserver(([entry]) => {
-			if (entry) available = entry.contentRect.width;
+			if (entry) {
+				available = entry.contentRect.width;
+				availableHeight = entry.contentRect.height;
+			}
 		});
 		observer.observe(container);
 		return () => observer.disconnect();
@@ -63,7 +84,8 @@
 <div
 	class="schema-diagram {className}"
 	bind:this={container}
-	data-scaled={(available > 0 && !scrolls) || undefined}
+	data-fit={fit}
+	data-scaled={(width > 0 && !scrolls) || undefined}
 	style="--scale: {scale}; --width: {placed.width}px; --height: {placed.height}px"
 >
 	<div class="schema-diagram__canvas">
@@ -119,6 +141,18 @@
 	}
 	.schema-diagram[data-scaled] {
 		overflow: hidden;
+	}
+	/* A thumbnail fills its box and centres the diagram inside it. */
+	.schema-diagram[data-fit='contain'] {
+		height: 100%;
+		overflow: hidden;
+	}
+	.schema-diagram[data-fit='contain'] .schema-diagram__canvas {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%) scale(var(--scale));
+		transform-origin: center;
 	}
 	.schema-diagram__canvas {
 		position: relative;
