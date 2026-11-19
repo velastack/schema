@@ -7,9 +7,18 @@ on:
     tags:
       - 'schema-v*.*.*'
       - 'ui-v*.*.*'
+  # By hand, from the default branch: releases the version the chosen package
+  # is at and tags it. For when pushing a tag is not possible.
+  workflow_dispatch:
+    inputs:
+      package:
+        description: The package to release
+        type: choice
+        options: [schema, ui]
+        required: true
 
 permissions:
-  contents: read
+  contents: write # to push the tag when started by hand
   id-token: write # required for npm provenance
 
 jobs:
@@ -27,13 +36,36 @@ jobs:
 
       - run: npm ci
 
+      # A pushed tag starts this run with the tag as its ref. Started by hand, the
+      # tag is the chosen package's version: it must not exist yet, and is
+      # pushed at the end, once the package is published.
+      - name: Resolve the release tag
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PACKAGE: ${{ inputs.package }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$GITHUB_REF_NAME" != "$DEFAULT_BRANCH" ]; then
+              echo "Run this from $DEFAULT_BRANCH, not $GITHUB_REF_NAME"
+              exit 1
+            fi
+            TAG="$PACKAGE-v$(node -p "require('./packages/$PACKAGE/package.json').version")"
+            if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+              echo "$TAG is already released: bump the version in package.json first"
+              exit 1
+            fi
+          else
+            TAG="$GITHUB_REF_NAME"
+          fi
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+
       - name: Resolve the package from the tag
         id: pkg
         run: |
-          case "$GITHUB_REF_NAME" in
-            schema-v*) echo "dir=packages/schema" >> "$GITHUB_OUTPUT"; echo "version=${GITHUB_REF_NAME#schema-v}" >> "$GITHUB_OUTPUT" ;;
-            ui-v*)     echo "dir=packages/ui"     >> "$GITHUB_OUTPUT"; echo "version=${GITHUB_REF_NAME#ui-v}" >> "$GITHUB_OUTPUT" ;;
-            *) echo "unexpected tag $GITHUB_REF_NAME"; exit 1 ;;
+          case "$RELEASE_TAG" in
+            schema-v*) echo "dir=packages/schema" >> "$GITHUB_OUTPUT"; echo "version=${RELEASE_TAG#schema-v}" >> "$GITHUB_OUTPUT" ;;
+            ui-v*)     echo "dir=packages/ui"     >> "$GITHUB_OUTPUT"; echo "version=${RELEASE_TAG#ui-v}" >> "$GITHUB_OUTPUT" ;;
+            *) echo "unexpected tag $RELEASE_TAG"; exit 1 ;;
           esac
 
       - name: Verify tag matches package.json version
@@ -55,3 +87,9 @@ jobs:
       - name: Publish to npm
         working-directory: ${{ steps.pkg.outputs.dir }}
         run: npm publish --access public --provenance
+
+      - name: Push the tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git tag "$RELEASE_TAG"
+          git push origin "$RELEASE_TAG"
